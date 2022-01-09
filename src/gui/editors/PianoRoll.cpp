@@ -4718,6 +4718,66 @@ void PianoRoll::changeSnapMode()
 	m_gridMode = static_cast<GridMode>(m_snapModel.value());
 }
 
+void PianoRoll::paintGhostNotes(QPainter & p,
+	const QRect & dr,
+	TimePos start,
+	TimePos end)
+{
+	if( !m_ghostNotes.empty() )
+	{
+
+		int maxKey = std::numeric_limits<int>::min();
+		int minKey = std::numeric_limits<int>::max();
+
+		for (Note const * note : m_ghostNotes)
+		{
+			int const key = note->key();
+			maxKey = qMax( maxKey, key );
+			minKey = qMin( minKey, key );
+		}
+
+		for( const Note *note : m_ghostNotes )
+		{
+			int len_ticks = note->length();
+
+			if( len_ticks == 0 )
+			{
+				continue;
+			}
+			else if( len_ticks < 0 )
+			{
+				len_ticks = 4;
+			}
+
+			int pos_ticks = note->pos();
+
+			int note_width = len_ticks * m_ppb / TimePos::ticksPerBar();
+			const int x = ( pos_ticks - start ) *
+					m_ppb / TimePos::ticksPerBar();
+			// skip this note if not in visible area at all
+			if (!(x + note_width >= 0 && x <= dr.width() - m_whiteKeyWidth))
+			{
+				continue;
+			}
+
+			int range = 2+maxKey-minKey;
+			// is the note in visible area?
+			//if (note->key() > bottomKey && note->key() <= topKey)
+			//{
+
+				// we've done and checked all, let's draw the note
+				drawNoteRect(
+					p, x + m_whiteKeyWidth, dr.height()-((note->key()-minKey)*dr.height()/range)-32, note_width,
+					note, m_ghostNoteColor, m_ghostNoteTextColor, m_selectedNoteColor,
+					m_ghostNoteOpacity, m_ghostNoteBorders, 
+					(bool)ConfigManager::inst()->value( "ui", "printnotelabels").toInt());
+			//}
+
+		}
+	}
+}
+
+
 PianoRollWindow::PianoRollWindow() :
 	Editor(true, true),
 	m_editor(new PianoRoll())

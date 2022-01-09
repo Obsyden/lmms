@@ -115,6 +115,8 @@ public:
 	void loadGhostNotes( const QDomElement & de );
 	void loadMarkedSemiTones(const QDomElement & de);
 
+	void paintGhostNotes(QPainter & p, const QRect & dr, TimePos start, TimePos end);
+
 	inline void stopRecording()
 	{
 		m_recording = false;
@@ -555,6 +557,8 @@ private:
 	ComboBox * m_chordComboBox;
 	ComboBox* m_snapComboBox;
 	QPushButton * m_clearGhostButton;
+
+	friend class SampleEditor;
 
 };
 
