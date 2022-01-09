@@ -54,6 +54,7 @@
 #include "PianoRoll.h"
 #include "ProjectJournal.h"
 #include "ProjectNotes.h"
+#include "SampleTCO.h"
 #include "SongEditor.h"
 #include "TimeLineWidget.h"
 #include "PeakController.h"
@@ -90,6 +91,7 @@ Song::Song() :
 	m_playMode( Mode_None ),
 	m_length( 0 ),
 	m_patternToPlay( nullptr ),
+	m_sampleToPlay(nullptr),
 	m_loopPattern( false ),
 	m_elapsedTicks( 0 ),
 	m_elapsedBars( 0 ),
@@ -234,6 +236,13 @@ void Song::processNextBuffer()
 				trackList.push_back(m_patternToPlay->getTrack());
 			}
 			break;
+		case Mode_PlaySample:
+			if (m_sampleToPlay)
+			{
+				clipNum = m_sampleToPlay->getTrack()->getTCONum(m_sampleToPlay);
+				trackList.push_back(m_sampleToPlay->getTrack());
+			}
+			break;
 
 		default:
 			return;
@@ -297,6 +306,10 @@ void Song::processNextBuffer()
 			else if (m_playMode == Mode_PlayPattern && m_loopPattern && !loopEnabled)
 			{
 				enforceLoop(TimePos{0}, m_patternToPlay->length());
+			}
+			else if (m_playMode == Mode_PlaySample && m_loopPattern && !loopEnabled)
+			{
+				enforceLoop(TimePos{0}, m_sampleToPlay->length());
 			}
 
 			// Handle loop points, and inform VST plugins of the loop status
@@ -479,7 +492,7 @@ int Song::getExportProgress() const
 
 void Song::playSong()
 {
-	m_recording = false;
+	//m_recording = false;
 
 	if( isStopped() == false )
 	{
@@ -561,6 +574,27 @@ void Song::playPattern( const Pattern* patternToPlay, bool loop )
 	emit playbackStateChanged();
 }
 
+void Song::playSample( const SampleTCO* sampleToPlay, bool loop )
+{
+	if( isStopped() == false )
+	{
+		stop();
+	}
+
+	m_sampleToPlay = sampleToPlay;
+	m_loopPattern = loop;
+
+	if( m_sampleToPlay != nullptr )
+	{
+		m_playMode = Mode_PlaySample;
+		m_playing = true;
+		m_paused = false;
+	}
+
+	savePos();
+
+	emit playbackStateChanged();
+}
 
 
 

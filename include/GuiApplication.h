@@ -33,6 +33,7 @@
 class QLabel;
 
 class AutomationEditorWindow;
+class SampleEditorWindow;
 class BBEditor;
 class ControllerRackView;
 class MixerView;
@@ -62,6 +63,7 @@ public:
 	ProjectNotes* getProjectNotes() { return m_projectNotes; }
 	MicrotunerConfig* getMicrotunerConfig() { return m_microtunerConfig; }
 	AutomationEditorWindow* automationEditor() { return m_automationEditor; }
+	SampleEditorWindow* sampleEditor() { return m_sampleEditor; }
 	ControllerRackView* getControllerRackView() { return m_controllerRackView; }
 
 public slots:
@@ -77,6 +79,7 @@ private:
 	MixerView* m_mixerView;
 	SongEditorWindow* m_songEditor;
 	AutomationEditorWindow* m_automationEditor;
+	SampleEditorWindow* m_sampleEditor;
 	BBEditor* m_bbEditor;
 	PianoRollWindow* m_pianoRoll;
 	ProjectNotes* m_projectNotes;

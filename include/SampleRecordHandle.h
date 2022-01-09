@@ -45,6 +45,7 @@ public:
 	virtual ~SampleRecordHandle();
 
 	void play( sampleFrame * _working_buffer ) override;
+	void play( sampleFrame * buffer, f_cnt_t frames);
 	bool isFinished() const override;
 
 	bool isFromTrack( const Track * _track ) const override;

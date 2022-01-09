@@ -41,6 +41,7 @@ public:
 public slots:
 	void updateSample();
 	void reverseSample();
+	void renameSample();
 
 
 
@@ -53,6 +54,8 @@ protected:
 	void mouseDoubleClickEvent( QMouseEvent * ) override;
 	void paintEvent( QPaintEvent * ) override;
 
+protected slots:
+	void openInSampleEditor();
 
 private:
 	SampleTCO * m_tco;

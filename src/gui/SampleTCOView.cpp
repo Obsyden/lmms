@@ -33,6 +33,9 @@
 #include "Song.h"
 #include "StringPairDrag.h"
 #include "ToolTip.h"
+#include "GuiApplication.h"
+#include "SampleEditor.h"
+#include "RenameDialog.h"
 
 SampleTCOView::SampleTCOView( SampleTCO * _tco, TrackView * _tv ) :
 	TrackContentObjectView( _tco, _tv ),
@@ -71,6 +74,13 @@ void SampleTCOView::constructContextMenu(QMenu* cm)
 	/*contextMenu.addAction( embed::getIconPixmap( "record" ),
 				tr( "Set/clear record" ),
 						m_tco, SLOT( toggleRecord() ) );*/
+
+	cm->addAction(
+		embed::getIconPixmap("rename"),
+		tr("Rename sample"),
+		this,
+		SLOT(renameSample())
+	);
 
 	cm->addAction(
 		embed::getIconPixmap("flip_x"),
@@ -165,8 +175,10 @@ void SampleTCOView::mouseReleaseEvent(QMouseEvent *_me)
 
 
 
-void SampleTCOView::mouseDoubleClickEvent( QMouseEvent * )
+void SampleTCOView::mouseDoubleClickEvent( QMouseEvent * mouseEvent)
 {
+	//DEFAULT BEHAVIOUR
+	/*
 	QString af = m_tco->m_sampleBuffer->openAudioFile();
 
 	if ( af.isEmpty() ) {} //Don't do anything if no file is loaded
@@ -180,8 +192,24 @@ void SampleTCOView::mouseDoubleClickEvent( QMouseEvent * )
 		m_tco->setSampleFile( af );
 		Engine::getSong()->setModified();
 	}
+	*/
+
+	if( mouseEvent->button() != Qt::LeftButton )
+	{
+		mouseEvent->ignore();
+		return;
+	}
+	openInSampleEditor();
+
 }
 
+void SampleTCOView::openInSampleEditor()
+{
+	getGUI()->sampleEditor()->setCurrentTCO(m_tco);
+	getGUI()->sampleEditor()->parentWidget()->show();
+	getGUI()->sampleEditor()->show();
+	getGUI()->sampleEditor()->setFocus();
+}
 
 
 
@@ -261,7 +289,7 @@ void SampleTCOView::paintEvent( QPaintEvent * pe )
 			qMax( static_cast<int>( m_tco->sampleLength() * ppb / ticksPerBar ), 1 ), rect().bottom() - 2 * spacing );
 	m_tco->m_sampleBuffer->visualize( p, r, pe->rect() );
 
-	QString name = PathUtil::cleanName(m_tco->m_sampleBuffer->audioFile());
+	QString name = PathUtil::cleanName(m_tco->name());
 	paintTextLabel(name, p);
 
 	// disable antialiasing for borders, since its not needed
@@ -291,7 +319,7 @@ void SampleTCOView::paintEvent( QPaintEvent * pe )
 	}
 	// recording sample tracks is not possible at the moment
 
-	/* if( m_tco->isRecord() )
+	if( m_tco->isRecord() )
 	{
 		p.setFont( pointSize<7>( p.font() ) );
 
@@ -302,7 +330,7 @@ void SampleTCOView::paintEvent( QPaintEvent * pe )
 
 		p.setBrush( QBrush( textColor() ) );
 		p.drawEllipse( 4, 5, 4, 4 );
-	}*/
+	}
 
 	p.end();
 
@@ -319,7 +347,14 @@ void SampleTCOView::reverseSample()
 	update();
 }
 
-
+void SampleTCOView::renameSample()
+{
+	QString s = m_tco->name();
+	RenameDialog rename_dlg( s );
+	rename_dlg.exec();
+	m_tco->setName( s );
+	emit m_tco->dataChanged();
+}
 
 
 //! Split this TCO.

@@ -30,6 +30,7 @@
 #include "LmmsPalette.h"
 
 #include "AutomationEditor.h"
+#include "SampleEditor.h"
 #include "BBEditor.h"
 #include "ConfigManager.h"
 #include "ControllerRackView.h"
@@ -165,6 +166,10 @@ GuiApplication::GuiApplication()
 	m_automationEditor = new AutomationEditorWindow;
 	connect(m_automationEditor, SIGNAL(destroyed(QObject*)), this, SLOT(childDestroyed(QObject*)));
 
+	displayInitProgress(tr("Preparing sample editor"));
+	m_sampleEditor = new SampleEditorWindow;
+	connect(m_sampleEditor, SIGNAL(destroyed(QObject*)), this, SLOT(childDestroyed(QObject*)));
+
 	splashScreen.finish(m_mainWindow);
 	m_mainWindow->finalize();
 
@@ -226,6 +231,10 @@ void GuiApplication::childDestroyed(QObject *obj)
 	else if (obj == m_controllerRackView)
 	{
 		m_controllerRackView = nullptr;
+	}
+	else if (obj == m_sampleEditor)
+	{
+		m_sampleEditor = nullptr;
 	}
 }
 

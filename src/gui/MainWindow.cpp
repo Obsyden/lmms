@@ -41,6 +41,7 @@
 #include "AboutDialog.h"
 #include "AudioDummy.h"
 #include "AutomationEditor.h"
+#include "SampleEditor.h"
 #include "BBEditor.h"
 #include "ControllerRackView.h"
 #include "embed.h"
@@ -557,6 +558,14 @@ void MainWindow::finalize()
 								m_toolBar );
 	microtuner_window->setShortcut( Qt::CTRL + Qt::Key_8 );
 
+	ToolButton * sample_editor_window = new ToolButton(
+					embed::getIconPixmap("sample_track") ,
+					tr( "Sample editor" ) +
+								" (Ctrl+9)",
+					this, SLOT( toggleSampleEditorWin() ),
+								m_toolBar );
+	microtuner_window->setShortcut( Qt::CTRL + Qt::Key_9 );
+
 	m_toolBarLayout->addWidget( song_editor_window, 1, 1 );
 	m_toolBarLayout->addWidget( bb_editor_window, 1, 2 );
 	m_toolBarLayout->addWidget( piano_roll_window, 1, 3 );
@@ -565,6 +574,7 @@ void MainWindow::finalize()
 	m_toolBarLayout->addWidget( controllers_window, 1, 6 );
 	m_toolBarLayout->addWidget( project_notes_window, 1, 7 );
 	m_toolBarLayout->addWidget( microtuner_window, 1, 8 );
+	m_toolBarLayout->addWidget( sample_editor_window, 1, 9 );
 	m_toolBarLayout->setColumnStretch( 100, 1 );
 
 	// setup-dialog opened before?
@@ -591,7 +601,8 @@ void MainWindow::finalize()
 			getGUI()->automationEditor(),
 			getGUI()->getBBEditor(),
 			getGUI()->pianoRoll(),
-			getGUI()->songEditor()
+			getGUI()->songEditor(),
+			getGUI()->sampleEditor()
 	})
 	{
 		QMdiSubWindow* window = addWindowedWidget(widget);
@@ -607,6 +618,7 @@ void MainWindow::finalize()
 	getGUI()->pianoRoll()->parentWidget()->hide();
 	getGUI()->songEditor()->parentWidget()->move(5, 5);
 	getGUI()->songEditor()->parentWidget()->show();
+	getGUI()->sampleEditor()->parentWidget()->show();
 
 	// reset window title every time we change the state of a subwindow to show the correct title
 	for( const QMdiSubWindow * subWindow : workspace()->subWindowList() )
@@ -1058,7 +1070,8 @@ void MainWindow::refocus()
 		<< getGUI()->songEditor()->parentWidget()
 		<< getGUI()->getBBEditor()->parentWidget()
 		<< getGUI()->pianoRoll()->parentWidget()
-		<< getGUI()->automationEditor()->parentWidget();
+		<< getGUI()->automationEditor()->parentWidget()
+		<< getGUI()->sampleEditor()->parentWidget();
 
 	bool found = false;
 	QList<QWidget*>::Iterator editor;
@@ -1130,6 +1143,11 @@ void MainWindow::toggleMicrotunerWin()
 	toggleWindow( getGUI()->getMicrotunerConfig() );
 }
 
+void MainWindow::toggleSampleEditorWin()
+{
+	toggleWindow( getGUI()->sampleEditor() );
+}
+
 
 void MainWindow::updateViewMenu()
 {
@@ -1169,6 +1187,10 @@ void MainWindow::updateViewMenu()
 	m_viewMenu->addAction(embed::getIconPixmap( "microtuner" ),
 			      tr( "Microtuner" ) + "\tCtrl+8",
 			      this, SLOT( toggleMicrotunerWin() )
+		);
+	m_viewMenu->addAction(embed::getIconPixmap( "microtuner" ),
+			      tr( "Sample Editor" ) + "\tCtrl+9",
+			      this, SLOT( toggleSampleEditorWin() )
 		);
 
 	m_viewMenu->addSeparator();
@@ -1279,6 +1301,7 @@ void MainWindow::updatePlayPauseIcons()
 	getGUI()->automationEditor()->setPauseIcon( false );
 	getGUI()->getBBEditor()->setPauseIcon( false );
 	getGUI()->pianoRoll()->setPauseIcon( false );
+	getGUI()->sampleEditor()->setPauseIcon( false );
 
 	if( Engine::getSong()->isPlaying() )
 	{
@@ -1298,6 +1321,10 @@ void MainWindow::updatePlayPauseIcons()
 
 			case Song::Mode_PlayPattern:
 				getGUI()->pianoRoll()->setPauseIcon( true );
+				break;
+			
+			case Song::Mode_PlaySample:
+				getGUI()->sampleEditor()->setPauseIcon( true );
 				break;
 
 			default:

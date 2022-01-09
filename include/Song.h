@@ -45,6 +45,7 @@
 
 class AutomationTrack;
 class Pattern;
+class SampleTCO;
 class TimeLineWidget;
 
 
@@ -68,6 +69,7 @@ public:
 		Mode_PlayBB,
 		Mode_PlayPattern,
 		Mode_PlayAutomationPattern,
+		Mode_PlaySample,
 		Mode_Count
 	} ;
 
@@ -365,6 +367,7 @@ public slots:
 	void playAndRecord();
 	void playBB();
 	void playPattern( const Pattern * patternToPlay, bool loop = true );
+	void playSample( const SampleTCO * sampleToPlay, bool loop = true);
 	void togglePause();
 	void stop();
 
@@ -475,6 +478,8 @@ private:
 
 	const Pattern* m_patternToPlay;
 	bool m_loopPattern;
+
+	const SampleTCO* m_sampleToPlay;
 
 	double m_elapsedMilliSeconds[Mode_Count];
 	tick_t m_elapsedTicks;

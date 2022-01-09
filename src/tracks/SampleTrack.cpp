@@ -54,7 +54,7 @@ SampleTrack::SampleTrack(TrackContainer* tc) :
 
 SampleTrack::~SampleTrack()
 {
-	Engine::audioEngine()->removePlayHandlesOfTypes( this, PlayHandle::TypeSamplePlayHandle );
+	Engine::audioEngine()->removeRecordHandles( this );
 }
 
 
@@ -68,6 +68,8 @@ bool SampleTrack::play( const TimePos & _start, const fpp_t _frames,
 
 	tcoVector tcos;
 	::BBTrack * bb_track = nullptr;
+	//Playing a specific TCO in the sample editor
+
 	if( _tco_num >= 0 )
 	{
 		if (_start > getTCO(_tco_num)->length())
@@ -76,9 +78,43 @@ bool SampleTrack::play( const TimePos & _start, const fpp_t _frames,
 		}
 		if( _start != 0 )
 		{
-			return false;
+			//Why does this return false????
+			//Oh, nvm I get it
+			//This method will be called a bunch, so a tonne of handles called
+			//if it keeps adding the tcos
+			//return false;
 		}
-		tcos.push_back( getTCO( _tco_num ) );
+		SampleTCO * sTco = dynamic_cast<SampleTCO*>( getTCO(_tco_num) );
+		if( _start >= sTco->startTimeOffset())
+		if(_start < sTco->length() || sTco->isRecord())
+			{
+				//This is essential
+				if( sTco->isPlaying() == false )
+				{
+					auto bufferFramesPerTick = Engine::framesPerTick (sTco->sampleBuffer ()->sampleRate ());
+					
+					f_cnt_t sampleStart = bufferFramesPerTick * ( _start - sTco->startPosition() - sTco->startTimeOffset() );
+					f_cnt_t tcoFrameLength = bufferFramesPerTick * ( sTco->endPosition() - sTco->startPosition() - sTco->startTimeOffset() );
+					f_cnt_t sampleBufferLength = sTco->sampleBuffer()->frames();
+					//if the Tco smaller than the sample length we play only until Tco end
+					//else we play the sample to the end but nothing more
+					f_cnt_t samplePlayLength = tcoFrameLength > sampleBufferLength ? sampleBufferLength : tcoFrameLength;
+
+					if(sTco->isRecord()) {
+                        samplePlayLength = tcoFrameLength;
+                    }
+					//we only play within the sampleBuffer limits
+					if( sampleStart < sampleBufferLength || sTco->isRecord())
+					{
+						sTco->setSampleStartFrame( sampleStart );
+						sTco->setSamplePlayLength( samplePlayLength );
+						tcos.push_back( sTco );
+						sTco->setIsPlaying( true );
+						setPlaying(true);
+					}
+				}
+			}
+
 		if (trackContainer() == (TrackContainer*)Engine::getBBTrackContainer())
 		{
 			bb_track = BBTrack::findBBTrack( _tco_num );
@@ -95,7 +131,7 @@ bool SampleTrack::play( const TimePos & _start, const fpp_t _frames,
 
 			if( _start >= sTco->startPosition() && _start < sTco->endPosition() )
 			{
-				if( sTco->isPlaying() == false && _start >= (sTco->startPosition() + sTco->startTimeOffset()) )
+				if( sTco->isPlaying() == false && _start >= (sTco->startPosition() + sTco->startTimeOffset()) || sTco->isRecord())
 				{
 					auto bufferFramesPerTick = Engine::framesPerTick (sTco->sampleBuffer ()->sampleRate ());
 					f_cnt_t sampleStart = bufferFramesPerTick * ( _start - sTco->startPosition() - sTco->startTimeOffset() );
@@ -105,7 +141,7 @@ bool SampleTrack::play( const TimePos & _start, const fpp_t _frames,
 					//else we play the sample to the end but nothing more
 					f_cnt_t samplePlayLength = tcoFrameLength > sampleBufferLength ? sampleBufferLength : tcoFrameLength;
 					//we only play within the sampleBuffer limits
-					if( sampleStart < sampleBufferLength )
+					if( sampleStart < sampleBufferLength || sTco->isRecord())
 					{
 						sTco->setSampleStartFrame( sampleStart );
 						sTco->setSamplePlayLength( samplePlayLength );
@@ -123,7 +159,6 @@ bool SampleTrack::play( const TimePos & _start, const fpp_t _frames,
 		}
 		setPlaying(nowPlaying);
 	}
-
 	for( tcoVector::Iterator it = tcos.begin(); it != tcos.end(); ++it )
 	{
 		SampleTCO * st = dynamic_cast<SampleTCO *>( *it );
@@ -138,6 +173,8 @@ bool SampleTrack::play( const TimePos & _start, const fpp_t _frames,
 				}
 				SampleRecordHandle* smpHandle = new SampleRecordHandle( st );
 				handle = smpHandle;
+				handle->setOffset( _offset );
+				Engine::audioEngine()->addRecordHandle( handle );
 			}
 			else
 			{
@@ -145,10 +182,10 @@ bool SampleTrack::play( const TimePos & _start, const fpp_t _frames,
 				smpHandle->setVolumeModel( &m_volumeModel );
 				smpHandle->setBBTrack( bb_track );
 				handle = smpHandle;
+				handle->setOffset( _offset );
+				Engine::audioEngine()->addPlayHandle( handle );
 			}
-			handle->setOffset( _offset );
-			// send it to the audio engine
-			Engine::audioEngine()->addPlayHandle( handle );
+			
 			played_a_note = true;
 		}
 	}
@@ -218,7 +255,7 @@ void SampleTrack::loadTrackSpecificSettings( const QDomElement & _this )
 
 void SampleTrack::updateTcos()
 {
-	Engine::audioEngine()->removePlayHandlesOfTypes( this, PlayHandle::TypeSamplePlayHandle );
+	Engine::audioEngine()->removeRecordHandles( this );
 	setPlayingTcos( false );
 }
 

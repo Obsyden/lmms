@@ -149,6 +149,7 @@ public slots:
 	void aboutLMMS();
 	void help();
 	void toggleAutomationEditorWin();
+	void toggleSampleEditorWin();
 	void toggleBBEditorWin( bool forceShow = false );
 	void toggleSongEditorWin();
 	void toggleProjectNotesWin();

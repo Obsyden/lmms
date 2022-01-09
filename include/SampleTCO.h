@@ -29,6 +29,7 @@
 #include "SampleTrack.h"
 #include "TrackContentObject.h"
  
+class SampleTCOView;
 
 class SampleTCO : public TrackContentObject
 {
@@ -80,6 +81,7 @@ private:
 	bool m_isPlaying;
 
 	friend class SampleTCOView;
+	friend class SampleEditor;
 
 
 signals:

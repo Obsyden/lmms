@@ -32,6 +32,7 @@
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QPainter>
+#include <QDebug>
 
 
 #include <sndfile.h>
@@ -158,7 +159,6 @@ SampleBuffer::SampleBuffer(const SampleBuffer& orig)
 		{ memcpy(m_origData, orig.m_origData, origFrameBytes); }
 	if (orig.m_data != nullptr && frameBytes > 0)
 		{ memcpy(m_data, orig.m_data, frameBytes); }
-
 	orig.m_varLock.unlock();
 }
 
@@ -984,7 +984,63 @@ sampleFrame * SampleBuffer::getSampleFragment(
 }
 
 
+void SampleBuffer::trim(f_cnt_t start, f_cnt_t end)
+{
+	if (start>=end || start>m_frames || end>m_frames)
+		return;
+	m_frames = end-start;
+	memcpy(m_data, m_data+(start), m_frames*BYTES_PER_FRAME);
+	m_startFrame = start;
+	m_endFrame = end;
+}
 
+void SampleBuffer::removeSection(f_cnt_t start, f_cnt_t end)
+{
+	if (start>=end || start>m_frames || end>m_frames || start<=0)
+		return;
+	memmove(m_data+start, m_data+end, BYTES_PER_FRAME*(end-start));
+	m_frames=m_frames-end+start;
+	m_endFrame=m_frames;
+	emit sampleUpdated();
+	
+	
+}
+
+/*
+void SampleBuffer::moveSection(f_cnt_t startSection, f_cnt_t endSection, f_cnt_t offset)
+{
+	if(m_data == nullptr)
+		return;
+	//If the section is being moved beyond the size of the sample
+	if(endSection+offset>m_frames)
+	{
+		//Save backup data
+		sampleFrame* fData = MM_ALLOC<sampleFrame>(m_frames);
+		memcpy(fData, m_data, m_frames*BYTES_PER_FRAME);
+		//Free the current data
+		MM_FREE(m_data);
+		//Reallocate it to a larger buffer
+		m_data=MM_ALLOC<sampleFrame>(m_frames+endSection+offset);
+		//Copy original sample data
+		memcpy(m_data, fData, m_frames);
+		//Copy section
+		memcpy(m_data+startSection+offset, fData+startSection, BYTES_PER_FRAME*(endSection-startSection));
+		//Zero out the place where the section was
+		memset(m_data+startSection,0,BYTES_PER_FRAME*(endSection-startSection));
+		//Set lengths
+		m_frames+=endSection+offset;
+	}
+	//If the section is being moved before the start of the sample
+	else if(startSection+offset<0)
+	{
+		memcpy(m_data, m_data-offset, BYTES_PER_FRAME*(endSection+offset));
+	}
+	else
+	{
+		memcpy(m_data+startSection+offset, m_data+startSection, BYTES_PER_FRAME*(endSection-startSection));
+	}
+}
+*/
 
 f_cnt_t SampleBuffer::getLoopedIndex(f_cnt_t index, f_cnt_t startf, f_cnt_t endf) const
 {
@@ -1046,6 +1102,7 @@ void SampleBuffer::visualize(
 	const int totalPoints = nbFrames > w
 		? w
 		: nbFrames;
+	if (totalPoints<=0) return;
 	std::vector<QPointF> fEdgeMax(totalPoints);
 	std::vector<QPointF> fEdgeMin(totalPoints);
 	std::vector<QPointF> fRmsMax(totalPoints);
@@ -1116,7 +1173,6 @@ void SampleBuffer::visualize(
 		p.drawLine(fRmsMax[i], fRmsMin[i]);
 	}
 }
-
 
 
 

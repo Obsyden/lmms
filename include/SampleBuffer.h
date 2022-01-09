@@ -126,6 +126,8 @@ public:
 		const LoopMode loopMode = LoopOff
 	);
 
+	
+
 	void visualize(
 		QPainter & p,
 		const QRect & dr,
@@ -235,6 +237,12 @@ public:
 	{
 		return m_data;
 	}
+
+	void trim(f_cnt_t startTrim, f_cnt_t endTrim);
+
+	void removeSection(f_cnt_t startSection, f_cnt_t endSection);
+
+	//void moveSection(f_cnt_t startSection, f_cnt_t endSection, f_cnt_t offset);
 
 	QString openAudioFile() const;
 	QString openAndSetAudioFile();

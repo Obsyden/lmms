@@ -28,6 +28,7 @@
 
 #include "SampleTCOView.h"
 #include "TimeLineWidget.h"
+#include "PathUtil.h"
 
 SampleTCO::SampleTCO( Track * _track ) :
 	TrackContentObject( _track ),
@@ -86,7 +87,8 @@ SampleTCO::SampleTCO(const SampleTCO& orig) :
 	// TODO: This creates a new SampleBuffer for the new TCO, eating up memory
 	// & eventually causing performance issues. Letting tracks share buffers
 	// when they're identical would fix this, but isn't possible right now.
-	*m_sampleBuffer = *orig.m_sampleBuffer;
+	*m_sampleBuffer = SampleBuffer(*orig.m_sampleBuffer);
+	setName( m_sampleBuffer->audioFile() );
 	m_isPlaying = orig.m_isPlaying;
 }
 
@@ -148,6 +150,7 @@ void SampleTCO::setSampleFile( const QString & _sf )
 	else
 	{	//Otherwise set it to the sample's length
 		m_sampleBuffer->setAudioFile( _sf );
+		setName( PathUtil::cleanName(_sf) );
 		length = sampleLength();
 	}
 	changeLength(length);
@@ -173,6 +176,7 @@ void SampleTCO::toggleRecord()
 void SampleTCO::playbackPositionChanged()
 {
 	Engine::audioEngine()->removePlayHandlesOfTypes( getTrack(), PlayHandle::TypeSamplePlayHandle );
+	Engine::audioEngine()->removeRecordHandles(getTrack());
 	SampleTrack * st = dynamic_cast<SampleTrack*>( getTrack() );
 	st->setPlayingTcos( false );
 }
