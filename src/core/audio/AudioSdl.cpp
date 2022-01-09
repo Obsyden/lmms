@@ -28,6 +28,8 @@
 
 #include <QLabel>
 #include <QLineEdit>
+#include <QDebug>
+#include <chrono>
 
 #include "AudioEngine.h"
 #include "Engine.h"
@@ -104,12 +106,15 @@ AudioSdl::AudioSdl( bool & _success_ful, AudioEngine*  _audioEngine ) :
 
 	m_inputAudioHandle = m_audioHandle;
 	m_inputAudioHandle.callback = sdlInputAudioCallback;
+	m_inputAudioHandle.freq = 44100;
+	m_inputAudioHandle.samples = 4096;
+	m_inputAudioHandle.channels = 2;
 
 	m_inputDevice = SDL_OpenAudioDevice (nullptr,
 										 1,
 										 &m_inputAudioHandle,
 										 &actual,
-										 0);
+										 SDL_AUDIO_ALLOW_ANY_CHANGE);
 	if (m_inputDevice != 0) {
 		m_supportsCapture = true;
 	} else {
@@ -308,16 +313,12 @@ void AudioSdl::sdlAudioCallback( Uint8 * _buf, int _len )
 
 void AudioSdl::sdlInputAudioCallback(void *_udata, Uint8 *_buf, int _len) {
 	AudioSdl * _this = static_cast<AudioSdl *>( _udata );
-
 	_this->sdlInputAudioCallback( _buf, _len );
 }
 
 void AudioSdl::sdlInputAudioCallback(Uint8 *_buf, int _len) {
-	sampleFrame *samples_buffer = (sampleFrame *) _buf;
-	fpp_t frames = _len / sizeof ( sampleFrame );
-
-	audioEngine()->pushInputFrames (samples_buffer, frames);
-}
+	audioEngine()->addInputFrames((sampleFrame*)_buf, _len/sizeof(sampleFrame));
+}	
 
 #endif
 

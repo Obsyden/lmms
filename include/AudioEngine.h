@@ -209,12 +209,18 @@ public:
 
 	void removePlayHandle( PlayHandle* handle );
 
+	bool addRecordHandle( PlayHandle* handle );
+
+	void removeRecordHandle( PlayHandle* handle );
+
 	inline PlayHandleList& playHandles()
 	{
 		return m_playHandles;
 	}
 
 	void removePlayHandlesOfTypes(Track * track, const quint8 types);
+
+	void removeRecordHandles(Track * track);
 
 
 	// methods providing information for other classes
@@ -288,6 +294,12 @@ public:
 	}
 
 	void pushInputFrames( sampleFrame * _ab, const f_cnt_t _frames );
+
+	void addInputFrames ( sampleFrame * _data, const f_cnt_t _frames);
+
+	sampleFrame* inputFrameBuffer;
+
+	f_cnt_t inputFrameCount = 0;
 
 	inline const sampleFrame * inputBuffer()
 	{
@@ -389,10 +401,14 @@ private:
 
 	// playhandle stuff
 	PlayHandleList m_playHandles;
+
+	PlayHandleList m_recordHandles;
 	// place where new playhandles are added temporarily
 	LocklessList<PlayHandle *> m_newPlayHandles;
 	ConstPlayHandleList m_playHandlesToRemove;
 
+	LocklessList<PlayHandle *> m_newRecordHandles;
+	ConstPlayHandleList m_recordHandlesToRemove;
 
 	struct qualitySettings m_qualitySettings;
 	float m_masterGain;

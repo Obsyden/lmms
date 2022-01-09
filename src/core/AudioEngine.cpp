@@ -24,6 +24,10 @@
 
 #include "AudioEngine.h"
 
+#include <QDebug>
+#include <chrono>
+#include "SampleRecordHandle.h"
+
 #include "denormals.h"
 
 #include "lmmsconfig.h"
@@ -79,6 +83,7 @@ AudioEngine::AudioEngine( bool renderOnly ) :
 	m_workers(),
 	m_numWorkers( QThread::idealThreadCount()-1 ),
 	m_newPlayHandles( PlayHandle::MaxNumber ),
+	m_newRecordHandles( PlayHandle::MaxNumber ),
 	m_qualitySettings( qualitySettings::Mode_Draft ),
 	m_masterGain( 1.0f ),
 	m_isProcessing( false ),
@@ -96,10 +101,13 @@ AudioEngine::AudioEngine( bool renderOnly ) :
 	for( int i = 0; i < 2; ++i )
 	{
 		m_inputBufferFrames[i] = 0;
-		m_inputBufferSize[i] = DEFAULT_BUFFER_SIZE * 100;
-		m_inputBuffer[i] = new sampleFrame[ DEFAULT_BUFFER_SIZE * 100 ];
+		m_inputBufferSize[i] = DEFAULT_BUFFER_SIZE;
+		m_inputBuffer[i] = new sampleFrame[ DEFAULT_BUFFER_SIZE];
 		BufferManager::clear( m_inputBuffer[i], m_inputBufferSize[i] );
 	}
+
+	inputFrameBuffer = new sampleFrame[ DEFAULT_BUFFER_SIZE];
+	BufferManager::clear( inputFrameBuffer, DEFAULT_BUFFER_SIZE );
 
 	// determine FIFO size and number of frames per period
 	int fifoSize = 1;
@@ -311,13 +319,12 @@ void AudioEngine::pushInputFrames( sampleFrame * _ab, const f_cnt_t _frames )
 	if( frames + _frames > size )
 	{
 		size = qMax( size * 2, frames + _frames );
-		sampleFrame * ab = new sampleFrame[ size ];
+		sampleFrame * ab = new sampleFrame[ frames + size ];
 		memcpy( ab, buf, frames * sizeof( sampleFrame ) );
 		delete [] buf;
 
 		m_inputBufferSize[ m_inputBufferWrite ] = size;
 		m_inputBuffer[ m_inputBufferWrite ] = ab;
-
 		buf = ab;
 	}
 
@@ -327,6 +334,16 @@ void AudioEngine::pushInputFrames( sampleFrame * _ab, const f_cnt_t _frames )
 	doneChangeInModel();
 }
 
+void AudioEngine::addInputFrames(sampleFrame* _data, const f_cnt_t _frames)
+{
+	//requestChangeInModel();
+	for( PlayHandle * e : m_recordHandles )
+	{
+		static_cast<SampleRecordHandle*>(e)->play(_data, _frames);
+		
+	}
+	//doneChangeInModel();
+}
 
 
 
@@ -363,6 +380,21 @@ const surroundSampleFrame * AudioEngine::renderNextBuffer()
 
 		it_rem = m_playHandlesToRemove.erase( it_rem );
 	}
+	//Remove sample record handles 
+	it_rem = m_recordHandlesToRemove.begin();
+	while( it_rem != m_recordHandlesToRemove.end() )
+	{
+		PlayHandleList::Iterator it = std::find( m_recordHandles.begin(), m_recordHandles.end(), *it_rem );
+
+		if( it != m_recordHandles.end() )
+		{
+			( *it )->audioPort()->removePlayHandle( ( *it ) );
+			delete *it;
+			m_recordHandles.erase( it );
+		}
+
+		it_rem = m_recordHandlesToRemove.erase( it_rem );
+	}
 
 	swapBuffers();
 
@@ -381,6 +413,14 @@ const surroundSampleFrame * AudioEngine::renderNextBuffer()
 		m_playHandles += e->value;
 		LocklessListElement * next = e->next;
 		m_newPlayHandles.free( e );
+		e = next;
+	}
+
+	for( LocklessListElement * e = m_newRecordHandles.popList(); e; )
+	{
+		m_recordHandles += e->value;
+		LocklessListElement * next = e->next;
+		m_newRecordHandles.free( e );
 		e = next;
 	}
 
@@ -414,10 +454,31 @@ const surroundSampleFrame * AudioEngine::renderNextBuffer()
 		}
 	}
 
+	for( PlayHandleList::Iterator it = m_recordHandles.begin();
+						it != m_recordHandles.end(); )
+	{
+		if( ( *it )->affinityMatters() &&
+			( *it )->affinity() != QThread::currentThread() )
+		{
+			++it;
+			continue;
+		}
+		if( ( *it )->isFinished() )
+		{
+			delete *it;
+			it = m_recordHandles.erase( it );
+		}
+		else
+		{
+			++it;
+		}
+	}
+
 	// STAGE 2: process effects of all instrument- and sampletracks
 	AudioEngineWorkerThread::fillJobQueue<QVector<AudioPort *> >( m_audioPorts );
 	AudioEngineWorkerThread::startAndWaitForJobs();
 
+	//inputBufferFramesTemp=0;
 
 	// STAGE 3: do master mix in mixer
 	mixer->masterMix(m_outputBufferWrite);
@@ -447,6 +508,7 @@ void AudioEngine::swapBuffers()
 	m_inputBufferWrite = (m_inputBufferWrite + 1) % 2;
 	m_inputBufferRead = (m_inputBufferRead + 1) % 2;
 	m_inputBufferFrames[m_inputBufferWrite] = 0;
+	
 
 	std::swap(m_outputBufferRead, m_outputBufferWrite);
 	BufferManager::clear(m_outputBufferWrite, m_framesPerPeriod);
@@ -742,6 +804,70 @@ void AudioEngine::removePlayHandle(PlayHandle * ph)
 	doneChangeInModel();
 }
 
+bool AudioEngine::addRecordHandle( PlayHandle* handle )
+{
+	if( criticalXRuns() == false )
+	{
+		m_newRecordHandles.push( handle );
+		return true;
+	}
+
+	delete handle;
+
+	return false;
+}
+
+
+void AudioEngine::removeRecordHandle(PlayHandle * ph)
+{
+	requestChangeInModel();
+	// check thread affinity as we must not delete play-handles
+	// which were created in a thread different than the audio engine thread
+	if (ph->affinityMatters() && ph->affinity() == QThread::currentThread())
+	{
+		bool removedFromList = false;
+		// Check m_newPlayHandles first because doing it the other way around
+		// creates a race condition
+		for( LocklessListElement * e = m_newRecordHandles.first(),
+				* ePrev = nullptr; e; ePrev = e, e = e->next )
+		{
+			if (e->value == ph)
+			{
+				if( ePrev )
+				{
+					ePrev->next = e->next;
+				}
+				else
+				{
+					m_newRecordHandles.setFirst( e->next );
+				}
+				m_newRecordHandles.free( e );
+				removedFromList = true;
+				break;
+			}
+		}
+		// Now check m_playHandles
+		PlayHandleList::Iterator it = std::find(m_recordHandles.begin(), m_recordHandles.end(), ph);
+		if (it != m_recordHandles.end())
+		{
+			m_recordHandles.erase(it);
+			removedFromList = true;
+		}
+		// Only deleting PlayHandles that were actually found in the list
+		// "fixes crash when previewing a preset under high load"
+		// (See tobydox's 2008 commit 4583e48)
+		if ( removedFromList )
+		{
+			delete ph;
+		}
+	}
+	else
+	{
+		m_recordHandlesToRemove.push_back(ph);
+	}
+	doneChangeInModel();
+}
+
 
 
 
@@ -760,6 +886,25 @@ void AudioEngine::removePlayHandlesOfTypes(Track * track, const quint8 types)
 			}
 			else delete *it;
 			it = m_playHandles.erase( it );
+		}
+		else
+		{
+			++it;
+		}
+	}
+	doneChangeInModel();
+}
+
+void AudioEngine::removeRecordHandles(Track * track)
+{
+	requestChangeInModel();
+	PlayHandleList::Iterator it = m_recordHandles.begin();
+	while( it != m_recordHandles.end() )
+	{
+		if ((*it)->isFromTrack(track))
+		{
+			delete *it;
+			it = m_recordHandles.erase( it );
 		}
 		else
 		{

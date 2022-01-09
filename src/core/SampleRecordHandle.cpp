@@ -22,7 +22,6 @@
  *
  */
 
-
 #include "SampleRecordHandle.h"
 #include "AudioEngine.h"
 #include "BBTrack.h"
@@ -31,6 +30,8 @@
 #include "SampleBuffer.h"
 #include "SampleTrack.h"
 #include "debug.h"
+
+#include "AudioSdl.h"
 
 
 SampleRecordHandle::SampleRecordHandle( SampleTCO* tco ) :
@@ -41,6 +42,7 @@ SampleRecordHandle::SampleRecordHandle( SampleTCO* tco ) :
 	m_bbTrack( nullptr ),
 	m_tco( tco )
 {
+	setAudioPort( ( (SampleTrack *)tco->getTrack() )->audioPort() );
 }
 
 
@@ -53,6 +55,9 @@ SampleRecordHandle::~SampleRecordHandle()
 		SampleBuffer* sb;
 		createSampleBuffer( &sb );
 		m_tco->setSampleBuffer( sb );
+		m_tco->changeLength(TimePos(sb->frames()/Engine::framesPerTick(sb->sampleRate())));
+		emit m_tco->updateLength();
+		emit m_tco->sampleChanged();
 	}
 	
 	while( !m_buffers.empty() )
@@ -63,16 +68,16 @@ SampleRecordHandle::~SampleRecordHandle()
 	m_tco->setRecord( false );
 }
 
-
-
-
-void SampleRecordHandle::play( sampleFrame * /*_working_buffer*/ )
+void SampleRecordHandle::play( sampleFrame * data )
 {
-	const sampleFrame * recbuf = Engine::audioEngine()->inputBuffer();
-	const f_cnt_t frames = Engine::audioEngine()->inputBufferFrames();
-	writeBuffer( recbuf, frames );
-	m_framesRecorded += frames;
+	
+}
 
+
+void SampleRecordHandle::play( sampleFrame * data, f_cnt_t frames/*_working_buffer*/ )
+{
+	writeBuffer( data, frames );
+	m_framesRecorded += frames;
 	TimePos len = (tick_t)( m_framesRecorded / Engine::framesPerTick() );
 	if( len > m_minLength )
 	{
@@ -146,6 +151,7 @@ void SampleRecordHandle::writeBuffer( const sampleFrame * _ab, const f_cnt_t _fr
 		}
 	}
 	m_buffers.push_back( qMakePair( buf, _frames ) );
+	
 }
 
 
